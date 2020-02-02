@@ -22,7 +22,7 @@ namespace Microsoft.Extensions.Configuration
                 {
                     foreach (FileInfo configFile in configDir.GetFiles("*.json"))
                     {
-                        builder.AddJsonFile(configFile.FullName, optional: false, reloadOnChange: true);
+                        builder.AddJsonFile(configFile.FullName, optional: true, reloadOnChange: true);
                     }
                 }
             }
