@@ -1,0 +1,32 @@
+name: Code Scan (Master)
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  build_and_test:
+    name: "Build and Scan"
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Setup .NET Core
+      uses: actions/setup-dotnet@v1
+      with:
+        dotnet-version: 3.1.101
+
+    - name: Setup Scanner Tool
+      run: dotnet tool install --global dotnet-sonarscanner
+
+    - name: Checkout Source
+      uses: actions/checkout@v2
+      
+    - name: Build and Scan
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        SONAR_TOKEN: d4130955c475f284619a69d8d7a1512d95043213
+      run: |
+          dotnet sonarscanner begin /k:"kellybirr_coderz-kubernetes" /o:"kellybirr" /d:sonar.host.url="https://sonarcloud.io" /d:sonar.login="d4130955c475f284619a69d8d7a1512d95043213"
+          dotnet build "Coderz.Kubernetes.Extensions.sln"
+          dotnet sonarscanner end /d:sonar.login="d4130955c475f284619a69d8d7a1512d95043213" 
