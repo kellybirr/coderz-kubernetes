@@ -8,7 +8,7 @@ on:
 jobs:
   build_and_test:
     name: "Build and Scan"
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
 
     steps:
     - name: Setup .NET Core
@@ -25,8 +25,4 @@ jobs:
     - name: Build and Scan
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        SONAR_TOKEN: d4130955c475f284619a69d8d7a1512d95043213
-      run: |
-          dotnet sonarscanner begin /k:"kellybirr_coderz-kubernetes" /o:"kellybirr" /d:sonar.host.url="https://sonarcloud.io" /d:sonar.login="d4130955c475f284619a69d8d7a1512d95043213"
-          dotnet build "Coderz.Kubernetes.Extensions.sln"
-          dotnet sonarscanner end /d:sonar.login="d4130955c475f284619a69d8d7a1512d95043213" 
+      run: ./sonar-scan.cmd
