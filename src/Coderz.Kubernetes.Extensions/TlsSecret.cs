@@ -61,12 +61,17 @@ namespace Coderz.Kubernetes.Extensions
             if (! string.IsNullOrWhiteSpace(privateKey))
             {
                 X509Certificate2 cert0 = collection[0];
-                if (cert0.PublicKey.Oid.Value == OidRsa)
-                    collection[0] = SetRsaPrivateKey(cert0, privateKey);
-                else if (cert0.PublicKey.Oid.Value == OidEcc)
-                    collection[0] = SetEcDsaPrivateKey(cert0, privateKey);
-                else
-                    throw new ArgumentException("Invalid Certificate Type for Private Key", nameof(privateKey));
+                switch (cert0.PublicKey.Oid.Value)
+                {
+                    case OidRsa:
+                        collection[0] = SetRsaPrivateKey(cert0, privateKey);
+                        break;
+                    case OidEcc:
+                        collection[0] = SetEcDsaPrivateKey(cert0, privateKey);
+                        break;
+                    default:
+                        throw new ArgumentException("Invalid Certificate Type for Private Key", nameof(privateKey));
+                }
             }
 
             return collection;
