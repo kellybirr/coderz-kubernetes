@@ -2,7 +2,6 @@ using System;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography.X509Certificates;
-using Coderz.Kubernetes.Extensions;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -27,14 +26,21 @@ namespace UnitTests
         [InlineData("ecdsa")]
         public void LoadFromPath_Test(string alg)
         {
+            // test setup
             string certPath = Path.Combine(_basePath, alg);
-            X509Certificate2Collection collection = TlsSecret.FromMappedPath(certPath);
-            
-            Assert.NotNull(collection);
-            Assert.Equal(2, collection.Count);
-            Assert.True(collection[0].HasPrivateKey);
 
-            _out.WriteLine(collection[0].ToString());
+            // run test
+            var certificates = new X509Certificate2Collection();
+            X509Certificate2 privateKeyCert = certificates.ImportTlsSecret(certPath);
+
+            Assert.Equal(2, certificates.Count);
+
+            Assert.NotNull(privateKeyCert);
+            Assert.True(privateKeyCert.HasPrivateKey);
+
+            Assert.Equal(privateKeyCert, certificates[0]);
+
+            _out.WriteLine(privateKeyCert.ToString());
         }
 
         [Theory]
@@ -48,13 +54,17 @@ namespace UnitTests
             string keyString = File.ReadAllText(Path.Combine(certPath, "tls.key"));
 
             // run test
-            X509Certificate2Collection collection = TlsSecret.FromPemStrings(certString, keyString);
+            var certificates = new X509Certificate2Collection();
+            X509Certificate2 privateKeyCert = certificates.ImportPemStrings(certString, keyString);
 
-            Assert.NotNull(collection);
-            Assert.Equal(2, collection.Count);
-            Assert.True(collection[0].HasPrivateKey); 
-            
-            _out.WriteLine(collection[0].ToString());
+            Assert.Equal(2, certificates.Count);
+
+            Assert.NotNull(privateKeyCert);
+            Assert.True(privateKeyCert.HasPrivateKey); 
+
+            Assert.Equal(privateKeyCert, certificates[0]);
+
+            _out.WriteLine(privateKeyCert.ToString());
         }
 
         [Theory]
@@ -71,13 +81,17 @@ namespace UnitTests
             Environment.SetEnvironmentVariable("tls_key", keyString);
 
             // run test
-            X509Certificate2Collection collection = TlsSecret.FromEnvironment();
+            var certificates = new X509Certificate2Collection();
+            X509Certificate2 privateKeyCert = certificates.ImportFromEnvironment();
 
-            Assert.NotNull(collection);
-            Assert.Equal(2, collection.Count);
-            Assert.True(collection[0].HasPrivateKey);
+            Assert.Equal(2, certificates.Count);
 
-            _out.WriteLine(collection[0].ToString());
+            Assert.NotNull(privateKeyCert);
+            Assert.True(privateKeyCert.HasPrivateKey); 
+
+            Assert.Equal(privateKeyCert, certificates[0]);
+
+            _out.WriteLine(certificates[0].ToString());
         }
     }
 }

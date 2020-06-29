@@ -1,33 +1,31 @@
-﻿using System;
-using System.IO;
+﻿using System.IO;
 using System.Linq;
-using System.Security.Cryptography;
-using System.Security.Cryptography.X509Certificates;
 
-namespace Coderz.Kubernetes.Extensions
+// ReSharper disable once CheckNamespace
+namespace System.Security.Cryptography.X509Certificates
 {
     /// <summary>
     /// Loads an X509Certificate2 from a Kubernetes TLS secret mapped as environment variables or as a file
     /// </summary>
-    public static class TlsSecret
+    public static class X509CertificateExtensions
     {
         private const string OidRsa = "1.2.840.113549.1.1.1";
         private const string OidEcc = "1.2.840.10045.2.1";
 
-        public static X509Certificate2Collection FromEnvironment(string certVar="tls_crt", string keyVar="tls_key")
+        public static X509Certificate2 ImportFromEnvironment(this X509Certificate2Collection collection, string certVar="tls_crt", string keyVar="tls_key")
         {
             string tlsCertData = Environment.GetEnvironmentVariable(certVar);
             string tlsKeyData = Environment.GetEnvironmentVariable(keyVar);
 
-            return FromPemStrings(tlsCertData, tlsKeyData);
+            return ImportPemStrings(collection, tlsCertData, tlsKeyData);
         }
 
-        public static X509Certificate2Collection FromMappedPath(string path)
+        public static X509Certificate2 ImportTlsSecret(this X509Certificate2Collection collection, string mappedPath)
         {
-            if (!Directory.Exists(path))
+            if (!Directory.Exists(mappedPath))
                 return null;
 
-            var dir = new DirectoryInfo(path);
+            var dir = new DirectoryInfo(mappedPath);
             FileInfo tlsCertFile = dir.GetFiles("tls.crt").FirstOrDefault();
             FileInfo tlsKeyFile = dir.GetFiles("tls.key").FirstOrDefault();
 
@@ -38,43 +36,42 @@ namespace Coderz.Kubernetes.Extensions
                 ? File.ReadAllText(tlsKeyFile.FullName)
                 : null;
 
-            return FromPemStrings(tlsCertData, tlsKeyData);
+            return ImportPemStrings(collection, tlsCertData, tlsKeyData);
         }
 
-        public static X509Certificate2Collection FromPemStrings(string publicCertChain, string privateKey)
+        public static X509Certificate2 ImportPemStrings(this X509Certificate2Collection collection, string publicCertChain, string privateKey)
         {
-            // initialize return collection
-            var collection = new X509Certificate2Collection();
-
             // get public cert chain
+            X509Certificate2 privateKeyCert = null;
             string[] certChainParts = publicCertChain.Split('-', StringSplitOptions.RemoveEmptyEntries);
             for (int i = 0; i < certChainParts.Length; i++)
             {
                 if ((certChainParts[i] == "BEGIN CERTIFICATE") && (i < (certChainParts.Length - 1)))
                 {
                     byte[] certBuffer = Convert.FromBase64String(certChainParts[++i]);
-                    collection.Import(certBuffer);
+                    
+                    var cert = new X509Certificate2(certBuffer);
+                    privateKeyCert ??= cert;
+
+                    collection.Add(cert);
                 }
             }
 
-            // replace certificate 0 to include private key
-            if (! string.IsNullOrWhiteSpace(privateKey))
+            // if no certs or no private key
+            if (privateKeyCert == null || string.IsNullOrWhiteSpace(privateKey))
+                return null;
+
+            // replace private key certificate to include a new copy with the private key set
+            int pkIndex = collection.IndexOf(privateKeyCert);
+            privateKeyCert = privateKeyCert.PublicKey.Oid.Value switch
             {
-                X509Certificate2 cert0 = collection[0];
-                switch (cert0.PublicKey.Oid.Value)
-                {
-                    case OidRsa:
-                        collection[0] = SetRsaPrivateKey(cert0, privateKey);
-                        break;
-                    case OidEcc:
-                        collection[0] = SetEcDsaPrivateKey(cert0, privateKey);
-                        break;
-                    default:
-                        throw new ArgumentException("Invalid Certificate Type for Private Key", nameof(privateKey));
-                }
-            }
+                OidRsa => SetRsaPrivateKey(privateKeyCert, privateKey),
+                OidEcc => SetEcDsaPrivateKey(privateKeyCert, privateKey),
+                _ => throw new ArgumentException("Invalid Certificate Type for Private Key", nameof(privateKey))
+            };
+            collection[pkIndex] = privateKeyCert;
 
-            return collection;
+            return privateKeyCert;
         }
 
         private static X509Certificate2 SetRsaPrivateKey(X509Certificate2 cert, string privateKey)
