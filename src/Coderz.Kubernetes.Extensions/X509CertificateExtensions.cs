@@ -39,7 +39,7 @@ namespace System.Security.Cryptography.X509Certificates
             return ImportPemStrings(collection, tlsCertData, tlsKeyData);
         }
 
-        public static X509Certificate2 ImportPemStrings(this X509Certificate2Collection collection, string publicCertChain, string privateKey)
+        public static X509Certificate2 ImportPemStrings(this X509Certificate2Collection collection, string publicCertChain, string privateKey=null)
         {
             // get public cert chain
             X509Certificate2 privateKeyCert = null;
@@ -48,28 +48,26 @@ namespace System.Security.Cryptography.X509Certificates
             {
                 if ((certChainParts[i] == "BEGIN CERTIFICATE") && (i < (certChainParts.Length - 1)))
                 {
+                    // decode certificate from base64 in next string
                     byte[] certBuffer = Convert.FromBase64String(certChainParts[++i]);
-                    
                     var cert = new X509Certificate2(certBuffer);
-                    privateKeyCert ??= cert;
+
+                    // check if we need to add private key, if the first cert in the PEM
+                    if (privateKeyCert == null && !string.IsNullOrWhiteSpace(privateKey))
+                    {
+                        cert = cert.PublicKey.Oid.Value switch
+                        {
+                            OidRsa => SetRsaPrivateKey(cert, privateKey),
+                            OidEcc => SetEcDsaPrivateKey(cert, privateKey),
+                            _ => throw new ArgumentException("Invalid Certificate Type for Private Key", nameof(privateKey))
+                        };
+
+                        privateKeyCert = cert;
+                    }
 
                     collection.Add(cert);
                 }
             }
-
-            // if no certs or no private key
-            if (privateKeyCert == null || string.IsNullOrWhiteSpace(privateKey))
-                return null;
-
-            // replace private key certificate to include a new copy with the private key set
-            int pkIndex = collection.IndexOf(privateKeyCert);
-            privateKeyCert = privateKeyCert.PublicKey.Oid.Value switch
-            {
-                OidRsa => SetRsaPrivateKey(privateKeyCert, privateKey),
-                OidEcc => SetEcDsaPrivateKey(privateKeyCert, privateKey),
-                _ => throw new ArgumentException("Invalid Certificate Type for Private Key", nameof(privateKey))
-            };
-            collection[pkIndex] = privateKeyCert;
 
             return privateKeyCert;
         }

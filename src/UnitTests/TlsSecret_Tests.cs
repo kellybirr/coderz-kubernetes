@@ -39,6 +39,7 @@ namespace UnitTests
             Assert.True(privateKeyCert.HasPrivateKey);
 
             Assert.Equal(privateKeyCert, certificates[0]);
+            Assert.False(certificates[1].HasPrivateKey);
 
             _out.WriteLine(privateKeyCert.ToString());
         }
@@ -63,6 +64,7 @@ namespace UnitTests
             Assert.True(privateKeyCert.HasPrivateKey); 
 
             Assert.Equal(privateKeyCert, certificates[0]);
+            Assert.False(certificates[1].HasPrivateKey);
 
             _out.WriteLine(privateKeyCert.ToString());
         }
@@ -90,8 +92,31 @@ namespace UnitTests
             Assert.True(privateKeyCert.HasPrivateKey); 
 
             Assert.Equal(privateKeyCert, certificates[0]);
+            Assert.False(certificates[1].HasPrivateKey);
 
             _out.WriteLine(certificates[0].ToString());
         }
+
+        [Theory]
+        [InlineData("rsa")]
+        [InlineData("ecdsa")]
+        public void NoPrivateKey_Test(string alg)
+        {
+            // test setup
+            string certPath = Path.Combine(_basePath, alg);
+            string certString = File.ReadAllText(Path.Combine(certPath, "tls.crt"));
+
+            // run test
+            var certificates = new X509Certificate2Collection();
+            X509Certificate2 privateKeyCert = certificates.ImportPemStrings(certString);
+
+            Assert.Equal(2, certificates.Count);
+
+            Assert.Null(privateKeyCert);
+
+            Assert.False(certificates[0].HasPrivateKey);
+            Assert.False(certificates[1].HasPrivateKey);
+        }
+
     }
 }
