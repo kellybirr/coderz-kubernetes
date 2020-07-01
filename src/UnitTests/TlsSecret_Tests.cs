@@ -118,5 +118,41 @@ namespace UnitTests
             Assert.False(certificates[1].HasPrivateKey);
         }
 
+        [Fact]
+        public void Import_And_AddTrustStores_Test()
+        {
+            if (! RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+                return; // run on linux only
+
+            // test setup
+            string certPath = Path.Combine(_basePath, "rsa");
+
+            // run test
+            var certificates = new X509Certificate2Collection();
+            X509Certificate2 privateKeyCert = certificates.ImportTlsSecret(certPath);
+
+            Assert.Equal(2, certificates.Count);
+
+            certificates.AddToTrustStores(StoreLocation.CurrentUser);
+
+            using (X509Store myCertStore = new X509Store(StoreName.My, StoreLocation.CurrentUser, OpenFlags.ReadOnly))
+            {
+                Assert.True(myCertStore.Certificates.Contains(privateKeyCert));
+                Assert.False(myCertStore.Certificates.Contains(certificates[1]));
+            }
+
+            using (X509Store authCertStore = new X509Store(StoreName.CertificateAuthority, StoreLocation.CurrentUser, OpenFlags.ReadOnly))
+            {
+                Assert.False(authCertStore.Certificates.Contains(privateKeyCert));
+                Assert.True(authCertStore.Certificates.Contains(certificates[1]));
+            }
+
+            using (X509Store rootCertStore = new X509Store(StoreName.Root, StoreLocation.CurrentUser, OpenFlags.ReadOnly))
+            {
+                Assert.False(rootCertStore.Certificates.Contains(privateKeyCert));
+                Assert.False(rootCertStore.Certificates.Contains(certificates[1]));
+            }
+        }
+
     }
 }
