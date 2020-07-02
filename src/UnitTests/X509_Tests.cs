@@ -7,12 +7,12 @@ using Xunit.Abstractions;
 
 namespace UnitTests
 {
-    public class TlsSecret_Tests
+    public class X509_Tests
     {
         private readonly string _basePath;
         private readonly ITestOutputHelper _out;
 
-        public TlsSecret_Tests(ITestOutputHelper outputHelper)
+        public X509_Tests(ITestOutputHelper outputHelper)
         {
             _out = outputHelper;
 
@@ -152,6 +152,23 @@ namespace UnitTests
                 Assert.False(rootCertStore.Certificates.Contains(privateKeyCert));
                 Assert.False(rootCertStore.Certificates.Contains(certificates[1]));
             }
+        }
+
+        [Theory]
+        [InlineData("ecdsa")]
+        public void LoadCaSecret_Test(string alg)
+        {
+            // test setup
+            string certPath = Path.Combine(_basePath, alg);
+
+            // run test
+            var certificates = new X509Certificate2Collection();
+            certificates.ImportCaSecret(certPath);
+
+            Assert.Equal(2, certificates.Count);
+
+            Assert.False(certificates[0].HasPrivateKey);
+            Assert.False(certificates[1].HasPrivateKey);
         }
 
     }

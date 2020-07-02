@@ -60,6 +60,20 @@ namespace System.Security.Cryptography.X509Certificates
             return ImportPemStrings(collection, tlsCertData, tlsKeyData);
         }
 
+        public static void ImportCaSecret(this X509Certificate2Collection collection, string mappedPath)
+        {
+            if (!Directory.Exists(mappedPath))
+                return;
+
+            var dir = new DirectoryInfo(mappedPath);
+            FileInfo caCertFile = dir.GetFiles("ca.crt").FirstOrDefault();
+
+            if (caCertFile == null) return;
+            string caCertData = File.ReadAllText(caCertFile.FullName);
+
+            ImportPemStrings(collection, caCertData);
+        }
+
         public static X509Certificate2 ImportPemStrings(this X509Certificate2Collection collection, string publicCertChain, string privateKey=null)
         {
             // get public cert chain
