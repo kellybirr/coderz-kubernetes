@@ -12,6 +12,27 @@ namespace System.Security.Cryptography.X509Certificates
         private const string OidRsa = "1.2.840.113549.1.1.1";
         private const string OidEcc = "1.2.840.10045.2.1";
 
+        public static void AddToTrustStores(this X509Certificate2Collection collection, StoreLocation storeLocation)
+        {
+            using X509Store myCertStore = new X509Store(StoreName.My, storeLocation, OpenFlags.ReadWrite);
+            using X509Store authCertStore = new X509Store(StoreName.CertificateAuthority, storeLocation, OpenFlags.ReadWrite);
+            using X509Store rootCertStore = new X509Store(StoreName.Root, storeLocation, OpenFlags.ReadWrite);
+
+            foreach (X509Certificate2 cert in collection)
+            {
+                if (myCertStore.Certificates.Contains(cert)) continue;
+                if (authCertStore.Certificates.Contains(cert)) continue;
+                if (rootCertStore.Certificates.Contains(cert)) continue;
+
+                if (cert.HasPrivateKey)
+                    myCertStore.Add(cert);
+                else if (cert.Issuer == cert.Subject)
+                    rootCertStore.Add(cert);
+                else
+                    authCertStore.Add(cert);
+            }
+        }
+
         public static X509Certificate2 ImportFromEnvironment(this X509Certificate2Collection collection, string certVar="tls_crt", string keyVar="tls_key")
         {
             string tlsCertData = Environment.GetEnvironmentVariable(certVar);
@@ -55,14 +76,15 @@ namespace System.Security.Cryptography.X509Certificates
                     // check if we need to add private key, if the first cert in the PEM
                     if (privateKeyCert == null && !string.IsNullOrWhiteSpace(privateKey))
                     {
-                        cert = cert.PublicKey.Oid.Value switch
+                        privateKeyCert = cert.PublicKey.Oid.Value switch
                         {
                             OidRsa => SetRsaPrivateKey(cert, privateKey),
                             OidEcc => SetEcDsaPrivateKey(cert, privateKey),
                             _ => throw new ArgumentException("Invalid Certificate Type for Private Key", nameof(privateKey))
                         };
 
-                        privateKeyCert = cert;
+                        cert.Dispose(); // dispose old instance
+                        cert = privateKeyCert;
                     }
 
                     collection.Add(cert);
