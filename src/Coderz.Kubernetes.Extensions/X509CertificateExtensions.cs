@@ -85,7 +85,7 @@ namespace System.Security.Cryptography.X509Certificates
                 {
                     // decode certificate from base64 in next string
                     byte[] certBuffer = Convert.FromBase64String(certChainParts[++i]);
-                    var cert = new X509Certificate2(certBuffer);
+                    var cert = new X509Certificate2(certBuffer, string.Empty, X509KeyStorageFlags.Exportable);
 
                     // check if we need to add private key, if the first cert in the PEM
                     if (privateKeyCert == null && !string.IsNullOrWhiteSpace(privateKey))
@@ -126,7 +126,7 @@ namespace System.Security.Cryptography.X509Certificates
                     throw new ArgumentException("Invalid PrivateKey String", nameof(privateKey));
             }
 
-            return cert.CopyWithPrivateKey(rsaPrivateKey);
+            return cert.CopyWithPrivateKey(rsaPrivateKey).FixForWindows();
         }
 
         private static X509Certificate2 SetEcDsaPrivateKey(X509Certificate2 cert, string privateKey)
@@ -150,7 +150,15 @@ namespace System.Security.Cryptography.X509Certificates
                     throw new ArgumentException("Invalid PrivateKey String", nameof(privateKey));
             }
 
-            return cert.CopyWithPrivateKey(eccPrivateKey);
+            return cert.CopyWithPrivateKey(eccPrivateKey).FixForWindows();
+        }
+
+        // work around for Windows (WinApi) problems with PEMs, still in .NET 5
+        // see: https://github.com/dotnet/runtime/issues/23749
+        private static X509Certificate2 FixForWindows(this X509Certificate2 cert)
+        {
+            using (cert)    // return replacement cert and dispose original
+                return new X509Certificate2(cert.Export(X509ContentType.Pkcs12));
         }
     }
 }
